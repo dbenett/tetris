@@ -1,0 +1,405 @@
+<!DOCTYPE HTML>
+<html>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+    <head>
+        <title>pixi.js tetris</title>
+        <h1> Pixi.js Tetris </h1>
+        
+
+        <style>
+            body {
+                margin-left: 30px;
+                padding: 0;
+            }
+            .row {
+                margin-bottom: 15px;
+            }
+
+
+        </style>
+        <script src="pixi.js/bin/pixi.js"></script>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+
+    </head>
+    <body>
+    <div id='fps'> fps here </div>
+
+    <script>
+    var ENTER = 13;
+    var LEFT = 37;
+    var RIGHT = 39;
+    var UP = 38;
+    var DOWN = 40;
+    
+    /* Danny Benett -- June 2015 
+    pixi.js visualization */
+
+    // create a new instance of a pixi stage
+    var WIDTH = 500;
+    var HEIGHT = 800;
+    var SQ_SIZE = 50;
+
+    // create a renderer instance.
+    var renderer = PIXI.autoDetectRenderer(WIDTH, HEIGHT);
+
+    // add the renderer view element to the DOM
+    document.body.appendChild(renderer.view);
+
+    var stage = new PIXI.Container();
+
+    // draw squares
+    var squares = new Array(WIDTH/SQ_SIZE);
+    initialize();
+
+    requestAnimationFrame(animate);
+
+    var possibleShapes = ["L", "J", "Z", "S", "O", "I", "T"];
+    var colors = [0xFF0000, 0x660000, 0xFF00FF, 0x660066, 0x00FF00, 0x006600, 0x00FFAA, 0x006644, 0x0000FF, 0x000080, 0xFFFF00, 0x666600, 0x00CCFF, 0x005266];
+    var shapeGrids = [[[1,1,1,0], [0,0,1,0], [0,0,0,0], [0,0,0,0]], //L
+                     [[0,0,1,0], [1,1,1,0], [0,0,0,0], [0,0,0,0]], //J
+                     [[1,1,0,0], [0,1,1,0], [0,0,0,0], [0,0,0,0]], //Z
+                     [[1,1,0,0], [0,1,1,0], [0,0,0,0], [0,0,0,0]], //S
+                     [[1,1,0,0], [1,1,0,0], [0,0,0,0], [0,0,0,0]], //O
+                     [[1,1,1,0], [0,1,0,0], [0,0,0,0], [0,0,0,0]], //T
+                     [[1,1,1,1], [0,0,0,0], [0,0,0,0], [0,0,0,0]]]; //I
+    var downSpeed = 250;
+    var moveDown = true;
+    var currTetris = {
+        type: "",
+        grid: function() {
+                return (shapeGrids[possibleShapes.indexOf(this.type)]);
+            },
+        x_pos: 0,
+        y_pos: 0,
+    };
+    var newTetris = true;
+
+    // fill up the squares 2d array as necessary for current width/height/size
+    function initialize() {
+        for (var x = 0; x < squares.length; x++) {
+            squares[x] = new Array(HEIGHT/SQ_SIZE);
+            for (var y = 0; y < squares[x].length; y++) {
+                squares[x][y] = 0;
+            }
+        }
+        var left = keyboard(LEFT),
+            up = keyboard(UP),
+            right = keyboard(RIGHT),
+            down = keyboard(DOWN)
+            enter = keyboard(ENTER);
+
+        left.press = function() {
+            if (!collision(currTetris, -1, 0, false)) {
+                erasePrev(-1, 0);
+                currTetris.x_pos--;
+            }
+        }
+
+        right.press = function() {
+            if (!collision(currTetris, 1, 0, false)) {
+                erasePrev(1, 0);
+                currTetris.x_pos++;
+            }
+        }
+
+        up.press = function() {
+            var turned = rotate(shapeGrids[possibleShapes.indexOf(currTetris.type)]);
+            if (!collision(currTetris, 0, 0, turned)) {
+                erasePrev(0, 0);
+                shapeGrids[possibleShapes.indexOf(currTetris.type)] = turned;
+            }
+        }
+        down.press = function() {
+            downSpeed = 40;
+        }
+        down.release = function() {
+            downSpeed = 250;
+        }
+    }
+
+    function rotate(toTurn) {
+        var turned = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+        for (var x = 0; x < toTurn.length; x++) {
+            for (var y = 0; y < toTurn[0].length; y++) {
+                turned[x][y] = toTurn[y][x];
+            }
+        }
+
+        for (var y = 0; y < turned[0].length; y++) {
+            for (var x = 0; x < turned.length/2; x++) {
+                var temp = turned[x][y];
+                turned[x][y] = turned[turned.length-1-x][y];
+                turned[turned.length-1-x][y] = temp;
+            }
+        }
+
+        var moveLeft = true;
+
+        while (moveLeft) {
+            for (var y = 0; y < turned[0].length; y++) {
+                if (turned[0][y] !== 0) {
+                    y = turned[0].length;
+                    moveLeft = false;
+                }
+                else {
+                    if (y === turned[0].length-1) {
+                        turned.push(turned.shift());
+                    }
+                }
+            }
+        }
+        return turned;
+    }
+
+    // draw grid choosing color based on whether square is filled (1) or not (0)
+    function drawGrid() {
+        for (var x = 0; x < squares.length; x++) {
+            for (var y = 0; y < squares[x].length; y++) {
+                var curr = new PIXI.Graphics();
+                var color = 0x222222;
+                var filled = false;
+                if (squares[x][y]) {
+                    curr.beginFill(colors[possibleShapes.indexOf(squares[x][y])*2+1]);
+                    color = colors[possibleShapes.indexOf(squares[x][y])*2];
+                    filled = true;
+                }
+                curr.lineStyle(2, color, 1);
+                curr.drawRect(x * SQ_SIZE, y * SQ_SIZE, SQ_SIZE, SQ_SIZE);
+                curr.endFill();
+                // filled/colorful squares are placed deeper into stage's children array so that they get depth priority
+                if (filled)
+                    stage.addChild(curr);
+                else
+                    stage.addChildAt(curr, 0);
+            }
+        }
+    }
+
+    // erase tetris' previous position
+    function erasePrev(dx, dy) {
+        var grid = currTetris.grid();
+        if (dx === 0 && dy === 0) {
+            for (var x = 0; x < grid.length; x++) {
+                for (var y = 0; y < grid[0].length; y++) {
+                    if (grid[x][y])
+                        squares[currTetris.x_pos + x][currTetris.y_pos + y] = 0;
+                }
+            }
+            return;
+        }
+
+        for (var x = 0; x < grid.length; x++) {
+            for (var y = 0; y < grid[0].length; y++) {
+                if (grid[x][y] !== 0 && ((dy > 0 && y === 0) || (dx < 0 && x >= grid.length-1) || (dx > 0 && x === 0) || grid[x-dx][y-dy] !== 1)) {
+                    squares[currTetris.x_pos + x][currTetris.y_pos + y] = 0;
+                }
+            }
+        }
+    }
+
+    function tetrisDown() {
+        if (!collision(currTetris, 0, 1, false)) {
+            erasePrev(0, 1);
+            currTetris.y_pos++;
+        }
+        // otherwise has reached bottom (stop moving and keep in grid)
+        else {
+            newTetris = true;
+            //var filledLines = checkForLine();
+            //if (filledLines.length > 0) {
+              //  eraseLines(filledLines);
+            //}
+        }
+        moveDown = true;
+    }
+
+    function checkForLine() {
+        var toErase = [];
+        for (var y = 0; y < squares[0].length; y++) {
+            for (var x = 0; x < squares.length; x++) {
+                if (squares[x][y] === 0) {
+                    x = squares[0].length;
+                }
+                else {
+                    if (x === squares.length-1) {
+                        toErase.push(y);
+                    }
+                }
+            }
+        }
+        return toErase;
+    }
+
+    function eraseLines(toErase) {
+        for (var p = 0; p < toErase.length; p++) {
+            for (var x = 0; x < squares[0].length; x++) {
+                if (toErase[p] === 0) {
+                    squares[x][toErase[p]] = 0;
+                }
+                else {
+                    squares[x][toErase[p]] = squares[x][toErase[p]-1];
+                }
+           }
+        }
+    }
+
+    // runs every frame to animate
+    function animate() {
+        if (newTetris === true) {
+            currTetris.type = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
+            currTetris.x_pos = WIDTH/SQ_SIZE/2-1;
+            currTetris.y_pos = -2;
+            newTetris = false;
+            //console.log(currTetris);
+        }
+
+        if (moveDown) {
+            setTimeout('tetrisDown()', downSpeed);
+            moveDown = false;
+        }
+
+        redraw();
+        var grid = currTetris.grid();
+        for (var x = 0; x < grid.length; x++) {
+            for (var y = 0; y < grid[0].length; y++) {
+                if (grid[x][y] !== 0) {
+                    squares[currTetris.x_pos + x][currTetris.y_pos + y] = currTetris.type;
+                }
+            }
+        }
+
+        // render the stage   
+        renderer.render(stage);
+        requestAnimationFrame(animate);
+    }
+
+    function collision(tetris, dx, dy, turn) {
+        var grid = tetris.grid();
+        // vertical collision check (down)
+        if (dy !== 0) {
+            for (var x = 0; x < grid.length; x++) {
+                var lowestSquare;
+                for (var y = 0; y < grid[0].length; y++) {
+                    if (grid[x][y])
+                        lowestSquare = {
+                            x: x,
+                            y: y,
+                        };
+                }
+                if (lowestSquare && ( tetris.y_pos+dy+lowestSquare.y >= squares[0].length || squares[tetris.x_pos+dx+lowestSquare.x][tetris.y_pos+dy+lowestSquare.y] !== 0)) {
+                    return true;
+                }
+            }
+        }
+        // horizontal collision check right
+        if (dx > 0) {
+            for (var y = 0; y < grid[0].length; y++) {
+                var rightmostSquare = "none";
+                for (var x = 0; x < grid.length; x++) {
+                    if (grid[x][y])
+                        rightmostSquare = {
+                            x: x,
+                            y: y,
+                        };
+                }
+                if (rightmostSquare !== "none") {
+                    var right = squares[tetris.x_pos + dx + rightmostSquare.x];
+                    if (!right || right[tetris.y_pos + rightmostSquare.y] !== 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+        // horizontal collision check left
+        if (dx < 0) {
+            for (var y = 0; y < grid[0].length; y++) {
+                var leftmostSquare = "none";
+                for (var x = grid.length-1; x >= 0; x--) {
+                    if (grid[x][y])
+                        leftmostSquare = {
+                            x: x,
+                            y: y,
+                        };
+                }
+                if (leftmostSquare !== "none") {
+                    var left = squares[tetris.x_pos + dx + leftmostSquare.x];
+                    if (!left || left[tetris.y_pos + leftmostSquare.y] !== 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        if (turn) {
+            for (var x = 0; x < grid.length; x++) {
+                for (var y = 0; y < grid[x].length; y++) {
+                    if (!grid[x][y] && turn[x][y] && squares[x+tetris.x_pos][y+tetris.y_pos] !== 0) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    function redraw() {
+        for (var i = stage.children.length - 1; i >= 0; i--) {
+            stage.removeChild(stage.children[i]);
+        };
+        drawGrid();
+    }
+
+    /*function printSquares() {
+        for (var y = 0; y < squares[0].length; y++) {
+            var line = ""+y+":  ";
+            for (var x = 0; x < squares.length; x++) {
+                line+=squares[x][y] + " ";
+            }
+            console.log(line);
+        }
+    }*/
+
+    // code from keyboard controls from https://github.com/kittykatattack/learningPixi#keyboard
+    function keyboard(keyCode) {
+      var key = {};
+      key.code = keyCode;
+      key.isDown = false;
+      key.isUp = true;
+      key.press = undefined;
+      key.release = undefined;
+      //The `downHandler`
+      key.downHandler = function(event) {
+        if (event.keyCode === key.code) {
+          if (key.isUp && key.press) key.press();
+          key.isDown = true;
+          key.isUp = false;
+        }
+        event.preventDefault();
+      };
+
+      //The `upHandler`
+      key.upHandler = function(event) {
+        if (event.keyCode === key.code) {
+          if (key.isDown && key.release) key.release();
+          key.isDown = false;
+          key.isUp = true;
+        }
+        event.preventDefault();
+      };
+
+      //Attach event listeners
+      window.addEventListener(
+        "keydown", key.downHandler.bind(key), false
+      );
+      window.addEventListener(
+        "keyup", key.upHandler.bind(key), false
+      );
+      return key;
+    }
+
+    </script>
+
+    </body>
+</html>
