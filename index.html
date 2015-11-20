@@ -35,10 +35,11 @@
     var RIGHT = 39;
     var UP = 38;
     var DOWN = 40;
-    
-    var SQ_SIZE = 40;
+
+    var HEIGHT = $(window).height();
+    var SQ_SIZE = Math.floor(HEIGHT/20);
+    HEIGHT = SQ_SIZE * 20;
     var WIDTH = SQ_SIZE * 10;
-    var HEIGHT = SQ_SIZE * 20;
     var NUM_SQS = WIDTH/SQ_SIZE * HEIGHT/SQ_SIZE;
 
     // create a renderer instance.
@@ -74,6 +75,7 @@
             },
         x_pos: 0,
         y_pos: 0,
+        id: 0,
     };
     var firstTetris = true;
     var pauseForFall = false;
@@ -170,8 +172,9 @@
             for (var x = 0; x < squares.length; x++) {
                 if (squares[x][y]) {
                     var curr = new PIXI.Graphics();
-                    curr.beginFill(colors[possibleShapes.indexOf(squares[x][y])*2+1]);
-                    curr.lineStyle(2, colors[possibleShapes.indexOf(squares[x][y])*2], 1);
+                    var currType = squares[x][y].charAt(0);
+                    curr.beginFill(colors[possibleShapes.indexOf(currType)*2+1]);
+                    curr.lineStyle(2, colors[possibleShapes.indexOf(currType)*2], 1);
                     curr.drawRect(x * SQ_SIZE, y * SQ_SIZE, SQ_SIZE, SQ_SIZE);
                     curr.endFill();
                     stage.addChild(curr);
@@ -202,25 +205,72 @@
         }
     }
 
+    function familyFall( id, x, y, xDir, yDir ) {
+        if ( squares[x][y] !== id) {
+            return true;
+        }
+        if ( squares[x][y+1] ) {
+            return false;
+        }
+
+        var toFall=true;
+
+        if (xDir === 0) {
+            if (!familyFall( id, x, y, 1, 0 ))
+                toFall=false;
+            if (!familyFall( id, x, y, -1, 0 ))
+                toFall=false;
+        }
+        if (yDir === 0) {
+            if (!familyFall( id, x, y, 0, 1 ))
+                toFall=false;
+            if (!familyFall( id, x, y, 0, -1 ))
+                toFall=false;
+        }
+
+        if (!familyFall( id, x+xDir, y+yDir, xDir, yDir ))
+            toFall=false;
+        
+        return toFall;
+    }
+
+    // move tetromino down a line, or move all down (effect gravity) if a full line has been cleared
     function tetrisDown() {
-        // if a line has been cleared, this block moves tetris squares down
+        // if a line has been cleared, effect gravity to move tetris squares down
+        var noFall = new Array();
         if (pauseForFall) {
-            var movement = false;
-            for (var x = 0; x < squares.length; x++) {
-                var lineFull = true;
-                for (var y = squares[0].length; y >= 0; y--) {
-                    if (y+1 < squares[0].length && squares[x][y] && !squares[x][y+1]) {
-                        squares[x][y+1] = squares[x][y];
-                        squares[x][y] = 0;
-                        movement = true;
+            for (var y = squares[0].length-1; y >= 0; y--) {
+                for (var x = 0; x < squares.length; x++) {
+                    // if square filled
+                    if (squares[x][y]) {
+                        // if square is on ground or square is above a filled space that is not of its initial tetromino group
+                        if ( (y+1 >= squares[0].length) || ( squares[x][y+1] && !(squares[x][y]===squares[x][y+1]) ) )  {
+                            // then put this square in the noFall array
+                            noFall.push(squares[x][y]);
+                        }
                     }
                 }
             }
-            if (!movement && !isLineFull()) {
+            var numFell = 0;
+            for (var y = squares[0].length-1; y >= 0; y--) {
+                for (var x = 0; x < squares.length; x++) {
+                    // if not of a noFall id, move down 1 square
+                    if (squares[x][y] && y+1 < squares[0].length && $.inArray(squares[x][y], noFall) < 0) {
+                        numFell++;
+                        squares[x][y+1] = squares[x][y];
+                        squares[x][y] = 0;
+                    }
+                }
+            }
+
+            // check first if no tetromino will be falling, then check if a line has been filled by gravity
+            // if neither, continue game
+            if (numFell === 0 && !clearFullLines()) {
                 pauseForFall = false;
                 newTetris();
             }
         }
+
         // if no line cleared, simply move current tetris down
         else {
             if (!collision(currTetris, 0, 1, false)) {
@@ -230,7 +280,7 @@
             }
             // or, if the current tetris has reached bottom stop check for full lines and get a new tetris
             else {
-                isLineFull();
+                clearFullLines();
                 if (!pauseForFall) {
                     newTetris();
                 }
@@ -239,7 +289,8 @@
         moveDown = true;
     }
 
-    function isLineFull() {
+    // clears all full lines and returns whether any lines were full and have been cleared (true) or not (false)
+    function clearFullLines() {
         var fullLines = new Array(0);
         for (var y = 0; y < squares[0].length; y++) {
             var lineFull = true;
@@ -249,7 +300,7 @@
                 }
             }
             if (lineFull) {
-                fullLines.push(y);
+                fullLines.unshift(y);
             }
         }
 
@@ -266,23 +317,13 @@
         return false;
     }
 
-    function eraseLines(toErase) {
-        for (var p = 0; p < toErase.length; p++) {
-            for (var x = 0; x < squares[0].length; x++) {
-                if (toErase[p] === 0) {
-                    squares[x][toErase[p]] = 0;
-                }
-                else {
-                    squares[x][toErase[p]] = squares[x][toErase[p]-1];
-                }
-           }
-        }
-    }
 
+    // get a random new tetromino
     function newTetris() {
         currTetris.type = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
         currTetris.x_pos = WIDTH/SQ_SIZE/2-1;
         currTetris.y_pos = -2;
+        currTetris.id ++;
         updateSquares();
     }
 
@@ -311,7 +352,7 @@
         for (var x = 0; x < grid.length; x++) {
             for (var y = 0; y < grid[0].length; y++) {
                 if (grid[x][y] !== 0) {
-                    squares[currTetris.x_pos + x][currTetris.y_pos + y] = currTetris.type;
+                    squares[currTetris.x_pos + x][currTetris.y_pos + y] = currTetris.type + currTetris.id;
                 }
             }
         }
