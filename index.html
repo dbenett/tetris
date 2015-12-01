@@ -1,8 +1,11 @@
 <!DOCTYPE HTML>
 <html>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+
     <head>
+
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+        <link href='https://fonts.googleapis.com/css?family=Oxygen:300' rel='stylesheet' type='text/css'>
 
         
 
@@ -17,16 +20,30 @@
             #gameover {
                 display: none;
                 position: absolute;
+                font-family: 'Oxygen', sans-serif;
                 z-index: 1;
                 color: white;
                 font-size: 2em;
+                padding: 0;
+                margin: 0;
+                text-align: center;
             }
+
             #playagainbutton {
-                border: solid 1px white;
+                border: solid 1px black;
+                transition: background-color 0.5s ease;
+                border-radius: 5px;
+                color: black;
+                background-color: rgba(255,255,255,.7);
                 font-size: 1em;
                 padding: 5px;
                 cursor: pointer;
             }
+
+            #playagainbutton:hover {
+                background-color: rgba(255,255,255,.9);
+            }
+
             #canvas {
                 position: relative;
             }
@@ -43,7 +60,7 @@
     <title>pixi.js tetris</title>
     <h1> Pixi.js Tetris </h1>
     <div id="container">
-<div id="gameover">Game Over<div id="playagainbutton" onclick="playAgain()">Play Again?</div></div>
+        <div id="gameover"><div id="playagainbutton" onclick="playAgain()">Play Again?</div></div>
 
     </div>
 
@@ -59,20 +76,24 @@
     var RIGHT = 39;
     var UP = 38;
     var DOWN = 40;
-    
+
     var HEIGHT = $(window).height();
     var SQ_SIZE = Math.floor(HEIGHT/20);
     HEIGHT = SQ_SIZE * 20;
     var WIDTH = SQ_SIZE * 10;
     var NUM_SQS = WIDTH/SQ_SIZE * HEIGHT/SQ_SIZE;
 
+    $('#container').width(WIDTH);
+    $('#container').height(HEIGHT);
+
 
     // create a renderer instance.
     var renderer = PIXI.autoDetectRenderer(WIDTH, HEIGHT);
     renderer.view.id = "canvas";
+    $('#container').append(renderer.view);
 
     // add the renderer view element to the DOM
-    document.body.appendChild(renderer.view);
+    //document.body.appendChild(renderer.view);
 
     // create a new instance of a pixi stage
     var stage = new PIXI.Container();
