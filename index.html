@@ -3,8 +3,7 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
     <head>
-        <title>pixi.js tetris</title>
-        <h1> Pixi.js Tetris </h1>
+
         
 
         <style>
@@ -15,6 +14,22 @@
             .row {
                 margin-bottom: 15px;
             }
+            #gameover {
+                display: none;
+                position: absolute;
+                z-index: 1;
+                color: white;
+                font-size: 2em;
+            }
+            #playagainbutton {
+                border: solid 1px white;
+                font-size: 1em;
+                padding: 5px;
+                cursor: pointer;
+            }
+            #canvas {
+                position: relative;
+            }
 
 
         </style>
@@ -24,7 +39,15 @@
 
     </head>
     <body>
-    <div id='fps'> fps here </div>
+
+    <title>pixi.js tetris</title>
+    <h1> Pixi.js Tetris </h1>
+    <div id="container">
+<div id="gameover">Game Over<div id="playagainbutton" onclick="playAgain()">Play Again?</div></div>
+
+    </div>
+
+    
 
     <script>
 
@@ -36,15 +59,17 @@
     var RIGHT = 39;
     var UP = 38;
     var DOWN = 40;
-
+    
     var HEIGHT = $(window).height();
     var SQ_SIZE = Math.floor(HEIGHT/20);
     HEIGHT = SQ_SIZE * 20;
     var WIDTH = SQ_SIZE * 10;
     var NUM_SQS = WIDTH/SQ_SIZE * HEIGHT/SQ_SIZE;
 
+
     // create a renderer instance.
     var renderer = PIXI.autoDetectRenderer(WIDTH, HEIGHT);
+    renderer.view.id = "canvas";
 
     // add the renderer view element to the DOM
     document.body.appendChild(renderer.view);
@@ -54,9 +79,6 @@
 
     // draw squares
     var squares = new Array(WIDTH/SQ_SIZE);
-    initialize();
-
-    requestAnimationFrame(animate);
 
     var possibleShapes = ["L", "J", "Z", "S", "O", "T", "I"];
     var colors = [0xFF0000, 0x660000, 0xFF00FF, 0x660066, 0x00FF00, 0x006600, 0x00FFAA, 0x006644, 0x0000FF, 0x000080, 0xFFFF00, 0x666600, 0x00CCFF, 0x005266];
@@ -67,22 +89,38 @@
                      [[1,1,0,0], [1,1,0,0], [0,0,0,0], [0,0,0,0]], //O
                      [[1,1,1,0], [0,1,0,0], [0,0,0,0], [0,0,0,0]], //T
                      [[1,1,1,1], [0,0,0,0], [0,0,0,0], [0,0,0,0]]]; //I
-    var downSpeed = 250;
-    var moveDown = true;
-    var currTetris = {
-        type: "",
-        grid: function() {
-                return (shapeGrids[possibleShapes.indexOf(this.type)]);
-            },
-        x_pos: 0,
-        y_pos: 0,
-        id: 0,
-    };
-    var firstTetris = true;
-    var pauseForFall = false;
+    var downSpeed;
+    var moveDown;
+    var currID;
+    var currTetris;
+    var firstTetris;
+    var pauseForFall;
+    var gameOver;
+
+    initialize();
+    requestAnimationFrame(animate);
+
+    function defaultValues() {
+        firstTetris = true;
+        pauseForFall = false;
+        gameOver = false;
+        downSpeed = 250;
+        moveDown = true;
+        currID = 0;
+        currTetris = {
+            type: "",
+            grid: function() {
+                    return (shapeGrids[possibleShapes.indexOf(this.type)]);
+                },
+            x_pos: 0,
+            y_pos: 0,
+            id: 0,
+        };
+    }
 
     // fill up the squares 2d array as necessary for current width/height/size, draw bg grid, hook up keyboard inputs to functions
     function initialize() {
+        defaultValues();
         for (var x = 0; x < squares.length; x++) {
             squares[x] = new Array(HEIGHT/SQ_SIZE);
             for (var y = 0; y < squares[x].length; y++) {
@@ -91,7 +129,6 @@
                 curr.lineStyle(2, 0x222222, 1);
                 curr.drawRect(x * SQ_SIZE, y * SQ_SIZE, SQ_SIZE, SQ_SIZE);
                 stage.addChildAt(curr, 0);
-
             }
         }
 
@@ -133,6 +170,20 @@
         }
     }
 
+
+    function playAgain() {
+        defaultValues();
+        for (var x = 0; x < squares.length; x++) {
+            for (var y = 0; y < squares[x].length; y++) {
+                squares[x][y] = 0;
+            }
+        }
+
+        $('#gameover').css('display', 'none');
+        requestAnimationFrame(animate);
+    }
+
+
     function rotate(toTurn) {
         var turned = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
         for (var x = 0; x < toTurn.length; x++) {
@@ -173,19 +224,18 @@
             for (var x = 0; x < squares.length; x++) {
                 if (squares[x][y]) {
                     var curr = new PIXI.Graphics();
-
-                    var label = new PIXI.Text(squares[x][y], {font: "12px Verdana", fill: "white"});
+                    
+                    /*var label = new PIXI.Text(squares[x][y], {font: "12px Verdana", fill: "white"});*/
 
                     var currType = squares[x][y].charAt(0);
                     curr.beginFill(colors[possibleShapes.indexOf(currType)*2+1]);
                     curr.lineStyle(2, colors[possibleShapes.indexOf(currType)*2], 1);
                     curr.drawRect(x * SQ_SIZE, y * SQ_SIZE, SQ_SIZE, SQ_SIZE);
-                    label.position.x=x * SQ_SIZE;
-                    label.position.y=y * SQ_SIZE;
+                    /*label.position.x=x * SQ_SIZE;
+                    label.position.y=y * SQ_SIZE;*/
 
                     curr.endFill();
                     stage.addChild(curr);
-                    stage.addChild(label);
                 }
             }
         }
@@ -214,81 +264,78 @@
     }
 
 
+    function reIDTetromino(x, y) {
+        currID ++;
+        return squares[x][y].charAt(0) + recursiveIDTetromino( squares[x][y], squares[x][y].charAt(0) + currID, x, y, x, y, 0, 0 );
+    }
+
     // recursively search grid around given point to determine if all connected squares of given id
     // are able to fall (true) or not (false)
-    function familyCanFall( id, x_init, y_init, x, y, xDir, yDir ) {
+    function recursiveIDTetromino( oldID, newID, x_init, y_init, x, y, xDir, yDir ) {
         // return if outside bounds of grid
         if (x >= squares.length || x < 0 || y >= squares[0].length || y < 0)
-            return true;
+            return newID;
 
         // return if checking a square of some other id
-        if ( squares[x][y] !== id)
-            return true;
-
-        // return false if grounded by bottom of grid
-        if ( y + 1 >= squares[0].length) 
-            return false;
-
-        // return false if grounded by a square of some other id
-        if ( squares[x][y+1] && (!(squares[x][y+1] === id)) )
-            return false;
+        if ( squares[x][y] !== oldID)
+            return newID;
+        else {
+            squares[x][y] = squares[x][y].replace(oldID, newID);
+        }
 
         // first call move in all 4 directions
         if (xDir === 0 && yDir === 0) {
-            if (!familyFall( id, x_init, y_init, x+1, y, 1, 0 ))
-                return false;
-            if (!familyFall( id, x_init, y_init, x-1, y, -1, 0 ))
-                return false;
-            if (!familyFall( id, x_init, y_init, x, y+1, 0, 1 ))
-                return false;
-            if (!familyFall( id, x_init, y_init, x, y-1, 0, -1 ))
-                return false;
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x+1, y, 1, 0 );
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x-1, y, -1, 0 );
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x, y+1, 0, 1 );
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x, y-1, 0, -1 );
         } else if (x===x_init && y==y_init) {
             // every other call, check to make sure haven't gone in a circle (o-shaped tetromino)
-            return true;
+            return newID;
         }
         
         // if coming from x direction (either right (+1) or left (-1))
         if (xDir!==0) {
             // continue moving in same x direction (avoid getting caught in back and forth loop)
-            if (!familyFall( id, x_init, y_init, x+xDir, y, xDir, 0 ))
-                return false;
+            recursiveIDTetromino( oldID, newID,  x_init, y_init, x+xDir, y, xDir, 0 );
             // also, explore y direction up (-1) and down (+1)
-            if (!familyFall( id, x_init, y_init, x, y+1, 0, 1 ))
-                return false;
-            if (!familyFall( id, x_init, y_init, x, y-1, 0, -1 ))
-                return false;
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x, y+1, 0, 1 );
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x, y-1, 0, -1 );
         }
 
         // if coming from y direction (either up (-1) or down (+1))
         if (yDir!==0) {
-            // also, explore x direction right (+1) and left (-1)
-            if (!familyFall( id, x_init, y_init, x+1, y, 1, 0 ))
-                return false;
-            if (!familyFall( id, x_init, y_init, x-1, y, -1, 0 ))
-                return false;
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x+1, y, 1, 0 );
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x-1, y, -1, 0 );
             // continue moving in same y direction (avoid getting caught in back and forth loop)
-            if (!familyFall( id, x_init, y_init, x, y+yDir, 0, yDir ))
-                return false;
+            recursiveIDTetromino( oldID, newID, x_init, y_init, x, y+yDir, 0, yDir );
         }        
-        return true;
+        return newID;
     }
-
-    
 
     // move tetromino down a line, or move all down (effect gravity) if a full line has been cleared
     function tetrisDown() {
-        var gameOver = false;
 
         // if a line has been cleared, effect gravity to move tetris squares down
-        // var toFall = new Array();
+        var noFall = new Array();
         if (pauseForFall) {
-            var numFell = 0;
-
-            for (var y = (squares[0].length - 1); y >= 0; y--) {
+            for (var y = squares[0].length-1; y >= 0; y--) {
                 for (var x = 0; x < squares.length; x++) {
-                    // if square filled and passes recursive test
-                    if (squares[x][y] && familyCanFall( squares[x][y], x, y, x, y, 0, 0 )) {
+                    // if square filled
+                    if (squares[x][y]) {
+                        // if square is on ground or square is above a filled space that is not of its initial tetromino group
+                        if ( (y+1 >= squares[0].length) || ( squares[x][y+1] && !(squares[x][y]===squares[x][y+1]) ) )  {
+                            // then put this square in the noFall array
+                            noFall.push(squares[x][y]);
+                        }
+                    }
+                }
+            }
+            var numFell = 0;
+            for (var y = squares[0].length-1; y >= 0; y--) {
+                for (var x = 0; x < squares.length; x++) {
+                    // if not of a noFall id, move down 1 square
+                    if (squares[x][y] && y+1 < squares[0].length && $.inArray(squares[x][y], noFall) < 0) {
                         numFell++;
                         squares[x][y+1] = squares[x][y];
                         squares[x][y] = 0;
@@ -328,10 +375,9 @@
     }
 
     function displayGameOver() {
-        var gameOver = new PIXI.Text("Game Over!", {font: "35px Verdana", fill: "white", align: "left"});
-        gameOver.position.x = 20;
-        gameOver.position.y = 20;
-        stage.addChild(gameOver);
+        $('#gameover').css('display', 'block');
+        $('#gameover').css('top', HEIGHT/2);
+        $('#gameover').css('left', WIDTH/2-($('#gameover').width()/4));
     }
 
     // clears all full lines and returns whether any lines were full and have been cleared (true) or not (false)
@@ -350,9 +396,14 @@
         }
 
         if (fullLines.length > 0) {
+            // clear full lines and re-id the row above the cleared line
             fullLines.forEach(function(element, index) {
+                var lastID = null;
                 for (var x = 0; x < squares.length; x++) {
                     squares[x][element] = 0;
+                    if ((element-1 > 0) && (squares[x][element-1]) && (squares[x][element-1] !== lastID)) {
+                        lastID = reIDTetromino(x, element-1);
+                    }
                 }
             });
 
@@ -365,15 +416,16 @@
 
     // get a random new tetromino
     function newTetris() {
-        var yn = Math.floor(Math.random() * 2);
+        /*var yn = Math.floor(Math.random() * 2);
         if (yn)
             currTetris.type = possibleShapes[3];
         else
-            currTetris.type = possibleShapes[6];
-        //currTetris.type = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
+            currTetris.type = possibleShapes[6];*/
+        currTetris.type = possibleShapes[Math.floor(Math.random() * possibleShapes.length)];
         currTetris.x_pos = WIDTH/SQ_SIZE/2-1;
         currTetris.y_pos = -2;
-        currTetris.id ++;
+        currID ++;
+        currTetris.id = currID;
         updateSquares();
     }
 
@@ -384,16 +436,18 @@
             firstTetris = false;
         }
 
-        if (moveDown) {
-            setTimeout('tetrisDown()', downSpeed);
-            moveDown = false;
+        if (!gameOver) {
+            if (moveDown ) {
+                setTimeout('tetrisDown()', downSpeed);
+                moveDown = false;
+            }
+
+            redraw();
+
+            // render the stage   
+            renderer.render(stage);
+            requestAnimationFrame(animate);
         }
-
-        redraw();
-
-        // render the stage   
-        renderer.render(stage);
-        requestAnimationFrame(animate);
     }
 
     // put current tetris into squares 2d array based on its x_pos, y_pos, and grid (ie which shape it is)
